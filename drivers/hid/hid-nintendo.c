@@ -107,6 +107,11 @@ static const u16 JC_MAX_STICK_MAG		= 32767;
 static const u16 JC_STICK_FUZZ			= 250;
 static const u16 JC_STICK_FLAT			= 500;
 
+/* The imu axes will be mapped in terms of this magnitude */
+static const u16 JC_MAX_IMU_MAG			= 16000;
+static const u16 JC_IMU_FUZZ			= 4;
+static const u16 JC_IMU_FLAT			= 8;
+
 /* frequency/amplitude tables for rumble */
 struct joycon_rumble_freq_data {
 	u16 high;
@@ -280,6 +285,19 @@ struct joycon_subcmd_reply {
 	u8 data[0]; /* will be at most 35 bytes */
 } __packed;
 
+struct joycon_imu_data {
+	u16 accel_x;
+	u16 accel_y;
+	u16 accel_z;
+	u16 gyro_x;
+	u16 gyro_y;
+	u16 gyro_z;
+} __packed;
+
+struct joycon_imu_report {
+	struct joycon_imu_data data[3];
+} __packed;
+
 struct joycon_input_report {
 	u8 id;
 	u8 timer;
@@ -289,11 +307,10 @@ struct joycon_input_report {
 	u8 right_stick[3];
 	u8 vibrator_report;
 
-	/*
-	 * If support for firmware updates, gyroscope data, and/or NFC/IR
-	 * are added in the future, this can be swapped for a union.
-	 */
-	struct joycon_subcmd_reply reply;
+	union {
+		struct joycon_subcmd_reply subcmd_reply;
+		struct joycon_imu_report imu_report;
+	};
 } __packed;
 
 #define JC_MAX_RESP_SIZE	(sizeof(struct joycon_input_report) + 35)
@@ -352,6 +369,9 @@ struct joycon_ctlr {
 	u16 rumble_lh_freq;
 	u16 rumble_rl_freq;
 	u16 rumble_rh_freq;
+
+	/* imu */
+	struct input_dev *imu_input;
 };
 
 static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
@@ -547,7 +567,7 @@ static int joycon_request_calibration(struct joycon_ctlr *ctlr)
 	}
 
 	report = (struct joycon_input_report *)ctlr->input_buf;
-	raw_cal = &report->reply.data[5];
+	raw_cal = &report->subcmd_reply.data[5];
 
 	/* left stick calibration parsing */
 	cal_x = &ctlr->left_stick_cal_x;
@@ -625,6 +645,19 @@ static int joycon_enable_rumble(struct joycon_ctlr *ctlr, bool enable)
 
 	hid_dbg(ctlr->hdev, "%s rumble\n", enable ? "enabling" : "disabling");
 	return joycon_send_subcmd(ctlr, req, 1, HZ/4);
+}
+
+static int joycon_enable_imu(struct joycon_ctlr *ctlr, bool enable)
+{
+	struct joycon_subcmd_request *req;
+	u8 buffer[sizeof(*req) + 1] = { 0 };
+
+	req = (struct joycon_subcmd_request *)buffer;
+	req->subcmd_id = JC_SUBCMD_ENABLE_IMU;
+	req->data[0] = enable ? 0x01 : 0x00;
+
+	hid_dbg(ctlr->hdev, "%s IMU\n", enable ? "enabling" : "disabling");
+	return joycon_send_subcmd(ctlr, req, 1, HZ);
 }
 
 static s32 joycon_map_stick_val(struct joycon_stick_cal *cal, s32 val)
@@ -772,6 +805,13 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
 		spin_unlock_irqrestore(&ctlr->lock, flags);
 		wake_up(&ctlr->wait);
 	}
+
+	/* parse IMU data if present */
+#if 0
+	if (rep->id == JC_INPUT_IMU_DATA) {
+		struct joycon_imu_data *imu_data = rep->imu_report.data;
+	}
+#endif
 }
 
 static void joycon_rumble_worker(struct work_struct *work)
@@ -945,6 +985,7 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 {
 	struct hid_device *hdev;
 	const char *name;
+	const char *imu_name;
 	int ret;
 	int i;
 
@@ -953,12 +994,15 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 	switch (hdev->product) {
 	case USB_DEVICE_ID_NINTENDO_PROCON:
 		name = "Nintendo Switch Pro Controller";
+		imu_name = "Nintendo Switch Pro Controller IMU";
 		break;
 	case USB_DEVICE_ID_NINTENDO_JOYCONL:
 		name = "Nintendo Switch Left Joy-Con";
+		imu_name = "Nintendo Switch Left Joy-Con IMU";
 		break;
 	case USB_DEVICE_ID_NINTENDO_JOYCONR:
 		name = "Nintendo Switch Right Joy-Con";
+		imu_name = "Nintendo Switch Right Joy-Con IMU";
 		break;
 	default: /* Should be impossible */
 		hid_err(hdev, "Invalid hid product\n");
@@ -1009,6 +1053,34 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 #endif
 
 	ret = input_register_device(ctlr->input);
+	if (ret)
+		return ret;
+
+	/* configure the imu input device */
+	ctlr->imu_input = devm_input_allocate_device(&hdev->dev);
+	if (!ctlr->imu_input)
+		return -ENOMEM;
+
+	ctlr->imu_input->id.bustype = hdev->bus;
+	ctlr->imu_input->id.vendor = hdev->vendor;
+	ctlr->imu_input->id.product = hdev->product;
+	ctlr->imu_input->id.version = hdev->version;
+	ctlr->imu_input->uniq = ctlr->mac_addr_str;
+	ctlr->imu_input->name = imu_name;
+	input_set_drvdata(ctlr->imu_input, ctlr);
+
+	/* configure imu axes */
+	input_set_abs_params(ctlr->imu_input, ABS_RX,
+			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+			     JC_IMU_FUZZ, JC_IMU_FLAT);
+	input_set_abs_params(ctlr->imu_input, ABS_RY,
+			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+			     JC_IMU_FUZZ, JC_IMU_FLAT);
+	input_set_abs_params(ctlr->imu_input, ABS_RZ,
+			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+			     JC_IMU_FUZZ, JC_IMU_FLAT);
+
+	ret = input_register_device(ctlr->imu_input);
 	if (ret)
 		return ret;
 
@@ -1271,7 +1343,7 @@ static int joycon_read_mac(struct joycon_ctlr *ctlr)
 	report = (struct joycon_input_report *)ctlr->input_buf;
 
 	for (i = 4, j = 0; j < 6; i++, j++)
-		ctlr->mac_addr[j] = report->reply.data[i];
+		ctlr->mac_addr[j] = report->subcmd_reply.data[i];
 
 	ctlr->mac_addr_str = devm_kasprintf(&ctlr->hdev->dev, GFP_KERNEL,
 					    "%02X:%02X:%02X:%02X:%02X:%02X",
@@ -1326,7 +1398,7 @@ static int joycon_ctlr_handle_event(struct joycon_ctlr *ctlr, u8 *data,
 			    data[0] != JC_INPUT_SUBCMD_REPLY)
 				break;
 			report = (struct joycon_input_report *)data;
-			if (report->reply.id == ctlr->subcmd_ack_match)
+			if (report->subcmd_reply.id == ctlr->subcmd_ack_match)
 				match = true;
 			break;
 		default:
@@ -1463,6 +1535,13 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 	ret = joycon_enable_rumble(ctlr, true);
 	if (ret) {
 		hid_err(hdev, "Failed to enable rumble; ret=%d\n", ret);
+		goto err_mutex;
+	}
+
+	/* Enable the IMU */
+	ret = joycon_enable_imu(ctlr, true);
+	if (ret) {
+		hid_err(hdev, "Failed to enable the IMU; ret=%d\n", ret);
 		goto err_mutex;
 	}
 
