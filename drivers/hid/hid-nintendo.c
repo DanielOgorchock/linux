@@ -324,6 +324,7 @@ struct joycon_ctlr {
 	u8 usb_ack_match;
 	u8 subcmd_ack_match;
 	bool received_input_report;
+	bool ctlr_removed;
 
 	/* factory calibration data */
 	struct joycon_stick_cal left_stick_cal_x;
@@ -391,10 +392,12 @@ static int joycon_hid_send_sync(struct joycon_ctlr *ctlr, u8 *data, size_t len,
 			ret = wait_event_timeout(ctlr->wait,
 						 ctlr->received_input_report,
 						 HZ / 4);
+			spin_lock_irqsave(&ctlr->lock, flags);
 			/* We will still proceed, even with a timeout here */
-			if (!ret)
+			if (!ret && !ctlr->ctlr_removed)
 				hid_warn(ctlr->hdev,
 					 "timeout waiting for input report\n");
+			spin_unlock_irqrestore(&ctlr->lock, flags);
 		}
 
 		ret = __joycon_hid_send(ctlr->hdev, data, len);
@@ -446,6 +449,14 @@ static int joycon_send_subcmd(struct joycon_ctlr *ctlr,
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctlr->lock, flags);
+	/*
+	 * If the controller has been removed, just return ENODEV so the LED
+	 * subsystem doesn't print invalid errors on removal.
+	 */
+	if (ctlr->ctlr_removed) {
+		spin_unlock_irqrestore(&ctlr->lock, flags);
+		return -ENODEV;
+	}
 	memcpy(subcmd->rumble_data, ctlr->rumble_data[ctlr->rumble_queue_tail],
 	       JC_RUMBLE_DATA_SIZE);
 	spin_unlock_irqrestore(&ctlr->lock, flags);
@@ -773,10 +784,12 @@ static void joycon_rumble_worker(struct work_struct *work)
 		mutex_lock(&ctlr->output_mutex);
 		ret = joycon_enable_rumble(ctlr, true);
 		mutex_unlock(&ctlr->output_mutex);
-		if (ret < 0)
+
+		/* -ENODEV means the controller was just unplugged */
+		spin_lock_irqsave(&ctlr->lock, flags);
+		if (ret < 0 && ret != -ENODEV && !ctlr->ctlr_removed)
 			hid_warn(ctlr->hdev, "Failed to set rumble; e=%d", ret);
 
-		spin_lock_irqsave(&ctlr->lock, flags);
 		ctlr->rumble_msecs = jiffies_to_msecs(jiffies);
 		if (ctlr->rumble_queue_tail != ctlr->rumble_queue_head) {
 			if (++ctlr->rumble_queue_tail >= JC_RUMBLE_QUEUE_SIZE)
@@ -1449,9 +1462,17 @@ err:
 static void nintendo_hid_remove(struct hid_device *hdev)
 {
 	struct joycon_ctlr *ctlr = hid_get_drvdata(hdev);
+	unsigned long flags;
 
 	hid_dbg(hdev, "remove\n");
+
+	/* Prevent further attempts at sending subcommands. */
+	spin_lock_irqsave(&ctlr->lock, flags);
+	ctlr->ctlr_removed = true;
+	spin_unlock_irqrestore(&ctlr->lock, flags);
+
 	destroy_workqueue(ctlr->rumble_queue);
+
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
 }
