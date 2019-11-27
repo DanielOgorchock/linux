@@ -628,6 +628,7 @@ static int joycon_set_report_mode(struct joycon_ctlr *ctlr)
 
 	req = (struct joycon_subcmd_request *)buffer;
 	req->subcmd_id = JC_SUBCMD_SET_REPORT_MODE;
+	
 	req->data[0] = 0x30; /* standard, full report mode */
 
 	hid_dbg(ctlr->hdev, "setting controller report mode\n");
@@ -724,72 +725,100 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
 	/* Parse the buttons and sticks */
 	btns = hid_field_extract(ctlr->hdev, rep->button_status, 0, 24);
 
-	if (id != USB_DEVICE_ID_NINTENDO_JOYCONR) {
-		u16 raw_x;
-		u16 raw_y;
-		s32 x;
-		s32 y;
+	if (id != USB_DEVICE_ID_NINTENDO_SNESCON) {
+		if (id != USB_DEVICE_ID_NINTENDO_JOYCONR) {
+			u16 raw_x;
+			u16 raw_y;
+			s32 x;
+			s32 y;
 
-		/* get raw stick values */
-		raw_x = hid_field_extract(ctlr->hdev, rep->left_stick, 0, 12);
-		raw_y = hid_field_extract(ctlr->hdev,
-					  rep->left_stick + 1, 4, 12);
-		/* map the stick values */
-		x = joycon_map_stick_val(&ctlr->left_stick_cal_x, raw_x);
-		y = -joycon_map_stick_val(&ctlr->left_stick_cal_y, raw_y);
-		/* report sticks */
-		input_report_abs(dev, ABS_X, x);
-		input_report_abs(dev, ABS_Y, y);
+			/* get raw stick values */
+			raw_x = hid_field_extract(ctlr->hdev, rep->left_stick, 0, 12);
+			raw_y = hid_field_extract(ctlr->hdev,
+						  rep->left_stick + 1, 4, 12);
+			/* map the stick values */
+			x = joycon_map_stick_val(&ctlr->left_stick_cal_x, raw_x);
+			y = -joycon_map_stick_val(&ctlr->left_stick_cal_y, raw_y);
+			/* report sticks */
+			input_report_abs(dev, ABS_X, x);
+			input_report_abs(dev, ABS_Y, y);
 
-		/* report buttons */
-		input_report_key(dev, BTN_TL, btns & JC_BTN_L);
-		input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
-		if (id != USB_DEVICE_ID_NINTENDO_PROCON) {
-			/* Report the S buttons as the non-existent triggers */
-			input_report_key(dev, BTN_TR, btns & JC_BTN_SL_L);
-			input_report_key(dev, BTN_TR2, btns & JC_BTN_SR_L);
+			/* report buttons */
+			input_report_key(dev, BTN_TL, btns & JC_BTN_L);
+			input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
+			if (id != USB_DEVICE_ID_NINTENDO_PROCON) {
+				/* Report the S buttons as the non-existent triggers */
+				input_report_key(dev, BTN_TR, btns & JC_BTN_SL_L);
+				input_report_key(dev, BTN_TR2, btns & JC_BTN_SR_L);
+			}
+			input_report_key(dev, BTN_SELECT, btns & JC_BTN_MINUS);
+			input_report_key(dev, BTN_THUMBL, btns & JC_BTN_LSTICK);
+			input_report_key(dev, BTN_Z, btns & JC_BTN_CAP);
+			input_report_key(dev, BTN_DPAD_DOWN, btns & JC_BTN_DOWN);
+			input_report_key(dev, BTN_DPAD_UP, btns & JC_BTN_UP);
+			input_report_key(dev, BTN_DPAD_RIGHT, btns & JC_BTN_RIGHT);
+			input_report_key(dev, BTN_DPAD_LEFT, btns & JC_BTN_LEFT);
 		}
+		if (id != USB_DEVICE_ID_NINTENDO_JOYCONL) {
+			u16 raw_x;
+			u16 raw_y;
+			s32 x;
+			s32 y;
+
+			/* get raw stick values */
+			raw_x = hid_field_extract(ctlr->hdev, rep->right_stick, 0, 12);
+			raw_y = hid_field_extract(ctlr->hdev,
+						  rep->right_stick + 1, 4, 12);
+			/* map stick values */
+			x = joycon_map_stick_val(&ctlr->right_stick_cal_x, raw_x);
+			y = -joycon_map_stick_val(&ctlr->right_stick_cal_y, raw_y);
+			/* report sticks */
+			input_report_abs(dev, ABS_RX, x);
+			input_report_abs(dev, ABS_RY, y);
+
+			/* report buttons */
+			input_report_key(dev, BTN_TR, btns & JC_BTN_R);
+			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
+			if (id != USB_DEVICE_ID_NINTENDO_PROCON) {
+				/* Report the S buttons as the non-existent triggers */
+				input_report_key(dev, BTN_TL, btns & JC_BTN_SL_R);
+				input_report_key(dev, BTN_TL2, btns & JC_BTN_SR_R);
+			}
+			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
+			input_report_key(dev, BTN_START, btns & JC_BTN_PLUS);
+			input_report_key(dev, BTN_THUMBR, btns & JC_BTN_RSTICK);
+			input_report_key(dev, BTN_MODE, btns & JC_BTN_HOME);
+			input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
+			input_report_key(dev, BTN_NORTH, btns & JC_BTN_X);
+			input_report_key(dev, BTN_EAST, btns & JC_BTN_A);
+			input_report_key(dev, BTN_SOUTH, btns & JC_BTN_B);
+		}
+	} else {
+		int dpad_x;
+		int dpad_y;
+
 		input_report_key(dev, BTN_SELECT, btns & JC_BTN_MINUS);
-		input_report_key(dev, BTN_THUMBL, btns & JC_BTN_LSTICK);
-		input_report_key(dev, BTN_Z, btns & JC_BTN_CAP);
-		input_report_key(dev, BTN_DPAD_DOWN, btns & JC_BTN_DOWN);
-		input_report_key(dev, BTN_DPAD_UP, btns & JC_BTN_UP);
-		input_report_key(dev, BTN_DPAD_RIGHT, btns & JC_BTN_RIGHT);
-		input_report_key(dev, BTN_DPAD_LEFT, btns & JC_BTN_LEFT);
-	}
-	if (id != USB_DEVICE_ID_NINTENDO_JOYCONL) {
-		u16 raw_x;
-		u16 raw_y;
-		s32 x;
-		s32 y;
-
-		/* get raw stick values */
-		raw_x = hid_field_extract(ctlr->hdev, rep->right_stick, 0, 12);
-		raw_y = hid_field_extract(ctlr->hdev,
-					  rep->right_stick + 1, 4, 12);
-		/* map stick values */
-		x = joycon_map_stick_val(&ctlr->right_stick_cal_x, raw_x);
-		y = -joycon_map_stick_val(&ctlr->right_stick_cal_y, raw_y);
-		/* report sticks */
-		input_report_abs(dev, ABS_RX, x);
-		input_report_abs(dev, ABS_RY, y);
-
-		/* report buttons */
-		input_report_key(dev, BTN_TR, btns & JC_BTN_R);
-		input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
-		if (id != USB_DEVICE_ID_NINTENDO_PROCON) {
-			/* Report the S buttons as the non-existent triggers */
-			input_report_key(dev, BTN_TL, btns & JC_BTN_SL_R);
-			input_report_key(dev, BTN_TL2, btns & JC_BTN_SR_R);
-		}
-		input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
 		input_report_key(dev, BTN_START, btns & JC_BTN_PLUS);
-		input_report_key(dev, BTN_THUMBR, btns & JC_BTN_RSTICK);
-		input_report_key(dev, BTN_MODE, btns & JC_BTN_HOME);
+		input_report_key(dev, BTN_TL, btns & JC_BTN_L);
+		input_report_key(dev, BTN_TR, btns & JC_BTN_R);
+		input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
+		input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
+
 		input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
 		input_report_key(dev, BTN_NORTH, btns & JC_BTN_X);
 		input_report_key(dev, BTN_EAST, btns & JC_BTN_A);
 		input_report_key(dev, BTN_SOUTH, btns & JC_BTN_B);
+
+		dpad_x = 0;
+		if (btns & JC_BTN_LEFT) dpad_x = -1;
+		else if (btns & JC_BTN_RIGHT) dpad_x = 1;
+
+		dpad_y = 0;
+		if (btns & JC_BTN_UP) dpad_y = -1;
+		else if (btns & JC_BTN_DOWN) dpad_y = 1;
+
+		input_report_abs(dev, ABS_HAT0X, dpad_x);
+		input_report_abs(dev, ABS_HAT0Y, dpad_y);
 	}
 
 	input_sync(dev);
@@ -981,6 +1010,12 @@ static const unsigned int joycon_button_inputs[] = {
 	0 /* 0 signals end of array */
 };
 
+static const unsigned int snescon_button_inputs[] = {
+	BTN_SELECT, BTN_START, BTN_TL, BTN_TR, BTN_TL2, BTN_TR2,
+	BTN_NORTH, BTN_EAST, BTN_SOUTH, BTN_WEST,
+	0 /* 0 signals end of array */
+};
+
 static int joycon_input_create(struct joycon_ctlr *ctlr)
 {
 	struct hid_device *hdev;
@@ -995,6 +1030,10 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 	case USB_DEVICE_ID_NINTENDO_PROCON:
 		name = "Nintendo Switch Pro Controller";
 		imu_name = "Nintendo Switch Pro Controller IMU";
+		break;
+	case USB_DEVICE_ID_NINTENDO_SNESCON:
+		name = "Nintendo Switch SNES Controller";
+		imu_name = "";
 		break;
 	case USB_DEVICE_ID_NINTENDO_JOYCONL:
 		name = "Nintendo Switch Left Joy-Con";
@@ -1021,68 +1060,82 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 	input_set_drvdata(ctlr->input, ctlr);
 
 
-	/* set up sticks */
-	input_set_abs_params(ctlr->input, ABS_X,
-			     -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
-			     JC_STICK_FUZZ, JC_STICK_FLAT);
-	input_set_abs_params(ctlr->input, ABS_Y,
-			     -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
-			     JC_STICK_FUZZ, JC_STICK_FLAT);
-	input_set_abs_params(ctlr->input, ABS_RX,
-			     -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
-			     JC_STICK_FUZZ, JC_STICK_FLAT);
-	input_set_abs_params(ctlr->input, ABS_RY,
-			     -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
-			     JC_STICK_FUZZ, JC_STICK_FLAT);
-	/* set up buttons */
-	for (i = 0; joycon_button_inputs[i] > 0; i++)
-		input_set_capability(ctlr->input, EV_KEY,
-				     joycon_button_inputs[i]);
+	if (hdev->product != USB_DEVICE_ID_NINTENDO_SNESCON) {
+		/* set up sticks */
+		input_set_abs_params(ctlr->input, ABS_X,
+					 -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
+					 JC_STICK_FUZZ, JC_STICK_FLAT);
+		input_set_abs_params(ctlr->input, ABS_Y,
+					 -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
+					 JC_STICK_FUZZ, JC_STICK_FLAT);
+		input_set_abs_params(ctlr->input, ABS_RX,
+					 -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
+					 JC_STICK_FUZZ, JC_STICK_FLAT);
+		input_set_abs_params(ctlr->input, ABS_RY,
+					 -JC_MAX_STICK_MAG, JC_MAX_STICK_MAG,
+					 JC_STICK_FUZZ, JC_STICK_FLAT);
+		/* set up buttons */
+		for (i = 0; joycon_button_inputs[i] > 0; i++)
+			input_set_capability(ctlr->input, EV_KEY,
+						 joycon_button_inputs[i]);
 
 #if IS_ENABLED(CONFIG_NINTENDO_FF)
-	/* set up rumble */
-	input_set_capability(ctlr->input, EV_FF, FF_RUMBLE);
-	input_ff_create_memless(ctlr->input, NULL, joycon_play_effect);
-	ctlr->rumble_ll_freq = JC_RUMBLE_DFLT_LOW_FREQ;
-	ctlr->rumble_lh_freq = JC_RUMBLE_DFLT_HIGH_FREQ;
-	ctlr->rumble_rl_freq = JC_RUMBLE_DFLT_LOW_FREQ;
-	ctlr->rumble_rh_freq = JC_RUMBLE_DFLT_HIGH_FREQ;
-	joycon_clamp_rumble_freqs(ctlr);
-	joycon_set_rumble(ctlr, 0, 0, false);
-	ctlr->rumble_msecs = jiffies_to_msecs(jiffies);
+		/* set up rumble */
+		input_set_capability(ctlr->input, EV_FF, FF_RUMBLE);
+		input_ff_create_memless(ctlr->input, NULL, joycon_play_effect);
+		ctlr->rumble_ll_freq = JC_RUMBLE_DFLT_LOW_FREQ;
+		ctlr->rumble_lh_freq = JC_RUMBLE_DFLT_HIGH_FREQ;
+		ctlr->rumble_rl_freq = JC_RUMBLE_DFLT_LOW_FREQ;
+		ctlr->rumble_rh_freq = JC_RUMBLE_DFLT_HIGH_FREQ;
+		joycon_clamp_rumble_freqs(ctlr);
+		joycon_set_rumble(ctlr, 0, 0, false);
+		ctlr->rumble_msecs = jiffies_to_msecs(jiffies);
 #endif
 
-	ret = input_register_device(ctlr->input);
-	if (ret)
-		return ret;
+		ret = input_register_device(ctlr->input);
+		if (ret)
+			return ret;
 
-	/* configure the imu input device */
-	ctlr->imu_input = devm_input_allocate_device(&hdev->dev);
-	if (!ctlr->imu_input)
-		return -ENOMEM;
+		/* configure the imu input device */
+		ctlr->imu_input = devm_input_allocate_device(&hdev->dev);
+		if (!ctlr->imu_input)
+			return -ENOMEM;
 
-	ctlr->imu_input->id.bustype = hdev->bus;
-	ctlr->imu_input->id.vendor = hdev->vendor;
-	ctlr->imu_input->id.product = hdev->product;
-	ctlr->imu_input->id.version = hdev->version;
-	ctlr->imu_input->uniq = ctlr->mac_addr_str;
-	ctlr->imu_input->name = imu_name;
-	input_set_drvdata(ctlr->imu_input, ctlr);
+		ctlr->imu_input->id.bustype = hdev->bus;
+		ctlr->imu_input->id.vendor = hdev->vendor;
+		ctlr->imu_input->id.product = hdev->product;
+		ctlr->imu_input->id.version = hdev->version;
+		ctlr->imu_input->uniq = ctlr->mac_addr_str;
+		ctlr->imu_input->name = imu_name;
+		input_set_drvdata(ctlr->imu_input, ctlr);
 
-	/* configure imu axes */
-	input_set_abs_params(ctlr->imu_input, ABS_RX,
-			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
-			     JC_IMU_FUZZ, JC_IMU_FLAT);
-	input_set_abs_params(ctlr->imu_input, ABS_RY,
-			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
-			     JC_IMU_FUZZ, JC_IMU_FLAT);
-	input_set_abs_params(ctlr->imu_input, ABS_RZ,
-			     -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
-			     JC_IMU_FUZZ, JC_IMU_FLAT);
+		/* configure imu axes */
+		input_set_abs_params(ctlr->imu_input, ABS_RX,
+					 -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+					 JC_IMU_FUZZ, JC_IMU_FLAT);
+		input_set_abs_params(ctlr->imu_input, ABS_RY,
+					 -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+					 JC_IMU_FUZZ, JC_IMU_FLAT);
+		input_set_abs_params(ctlr->imu_input, ABS_RZ,
+					 -JC_MAX_IMU_MAG, JC_MAX_IMU_MAG,
+					 JC_IMU_FUZZ, JC_IMU_FLAT);
 
-	ret = input_register_device(ctlr->imu_input);
-	if (ret)
-		return ret;
+		ret = input_register_device(ctlr->imu_input);
+		if (ret)
+			return ret;
+	} else {
+		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
+		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
+
+		/* set up buttons */
+		for (i = 0; snescon_button_inputs[i] > 0; i++)
+			input_set_capability(ctlr->input, EV_KEY,
+						 snescon_button_inputs[i]);
+
+		ret = input_register_device(ctlr->input);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -1213,7 +1266,10 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 	mutex_unlock(&joycon_input_num_mutex);
 
 	/* configure the home LED */
-	if (ctlr->hdev->product != USB_DEVICE_ID_NINTENDO_JOYCONL) {
+	if (
+		ctlr->hdev->product != USB_DEVICE_ID_NINTENDO_JOYCONL &&
+		ctlr->hdev->product != USB_DEVICE_ID_NINTENDO_SNESCON
+	) {
 		name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s", d_name, "home");
 		if (!name)
 			return ret;
@@ -1492,7 +1548,8 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 	/* Initialize the controller */
 	mutex_lock(&ctlr->output_mutex);
 	/* if handshake command fails, assume ble pro controller */
-	if (hdev->product == USB_DEVICE_ID_NINTENDO_PROCON &&
+	if ((hdev->product == USB_DEVICE_ID_NINTENDO_PROCON ||
+		hdev->product == USB_DEVICE_ID_NINTENDO_SNESCON) &&
 	    !joycon_send_usb(ctlr, JC_USB_CMD_HANDSHAKE)) {
 		hid_dbg(hdev, "detected USB controller\n");
 		/* set baudrate for improved latency */
@@ -1514,14 +1571,16 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 		joycon_send_usb(ctlr, JC_USB_CMD_NO_TIMEOUT);
 	}
 
-	/* get controller calibration data, and parse it */
-	ret = joycon_request_calibration(ctlr);
-	if (ret) {
-		/*
-		 * We can function with default calibration, but it may be
-		 * inaccurate. Provide a warning, and continue on.
-		 */
-		hid_warn(hdev, "Analog stick positions may be inaccurate\n");
+	if (hdev->product != USB_DEVICE_ID_NINTENDO_SNESCON) {
+		/* get controller calibration data, and parse it */
+		ret = joycon_request_calibration(ctlr);
+		if (ret) {
+			/*
+			 * We can function with default calibration, but it may be
+			 * inaccurate. Provide a warning, and continue on.
+			 */
+			hid_warn(hdev, "Analog stick positions may be inaccurate\n");
+		}
 	}
 
 	/* Set the reporting mode to 0x30, which is the full report mode */
@@ -1531,18 +1590,20 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 		goto err_mutex;
 	}
 
-	/* Enable rumble */
-	ret = joycon_enable_rumble(ctlr, true);
-	if (ret) {
-		hid_err(hdev, "Failed to enable rumble; ret=%d\n", ret);
-		goto err_mutex;
-	}
+	if (hdev->product != USB_DEVICE_ID_NINTENDO_SNESCON) {
+		/* Enable rumble */
+		ret = joycon_enable_rumble(ctlr, true);
+		if (ret) {
+			hid_err(hdev, "Failed to enable rumble; ret=%d\n", ret);
+			goto err_mutex;
+		}
 
-	/* Enable the IMU */
-	ret = joycon_enable_imu(ctlr, true);
-	if (ret) {
-		hid_err(hdev, "Failed to enable the IMU; ret=%d\n", ret);
-		goto err_mutex;
+		/* Enable the IMU */
+		ret = joycon_enable_imu(ctlr, true);
+		if (ret) {
+			hid_err(hdev, "Failed to enable the IMU; ret=%d\n", ret);
+			goto err_mutex;
+		}
 	}
 
 	ret = joycon_read_mac(ctlr);
@@ -1615,6 +1676,10 @@ static const struct hid_device_id nintendo_hid_devices[] = {
 			 USB_DEVICE_ID_NINTENDO_PROCON) },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
 			 USB_DEVICE_ID_NINTENDO_PROCON) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_NINTENDO,
+			 USB_DEVICE_ID_NINTENDO_SNESCON) },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
+			 USB_DEVICE_ID_NINTENDO_SNESCON) },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
 			 USB_DEVICE_ID_NINTENDO_JOYCONL) },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
