@@ -476,6 +476,10 @@ struct joycon_ctlr {
 	unsigned int imu_delta_samples_count;
 	unsigned int imu_delta_samples_sum;
 	unsigned int imu_avg_delta_ms;
+
+	/* USB manual pairing info */
+	bool bt_paired;
+	u8 bt_link_key[16];
 };
 
 /* Helper macros for checking controller type */
@@ -689,6 +693,69 @@ static int joycon_request_spi_flash_read(struct joycon_ctlr *ctlr,
 		*reply = &report->subcmd_reply.data[5];
 	}
 	return ret;
+}
+
+static int joycon_manual_pairing(struct joycon_ctlr *ctlr,
+			const u8 *host_mac, u8 *link_key)
+{
+	struct joycon_subcmd_request *req;
+	struct joycon_input_report *report;
+	u8 buffer[sizeof(*req) + 7] = { 0 };
+	u8 *data, *jc_mac;
+	int ret, i;
+
+	if (!host_mac || !link_key)
+		return -EINVAL;
+
+	req = (struct joycon_subcmd_request *)buffer;
+	req->subcmd_id = JC_SUBCMD_MANUAL_BT_PAIRING;
+	data = req->data;
+
+	/* send host mac address */
+	data[0] = 0x01;
+	for ( i = 0; i < 6; i++)
+		data[1+i] = host_mac[5-i];
+
+	ret = joycon_send_subcmd(ctlr, req, 7, HZ);
+	if (ret) {
+		hid_err(ctlr->hdev, "fail to exchange mac address; ret=%d\n", ret);
+		return ret;
+	}
+
+	report = (struct joycon_input_report *)ctlr->input_buf;
+	/* read joycon mac address from reply data */
+	jc_mac = &report->subcmd_reply.data[1];
+	hid_dbg(ctlr->hdev, "device mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			jc_mac[0],jc_mac[1],jc_mac[2],jc_mac[3],jc_mac[4],jc_mac[5]);
+
+	req = (struct joycon_subcmd_request *)buffer;
+	req->subcmd_id = JC_SUBCMD_MANUAL_BT_PAIRING;
+	data = req->data;
+	data[0] = 0x02; /* get bluetooth link key */
+
+	hid_dbg(ctlr->hdev, "acquiring the bt pairing key\n");
+	ret = joycon_send_subcmd(ctlr, req, 1, HZ);
+	if (ret) {
+		hid_err(ctlr->hdev, "fail to acquire the pairing key; ret=%d\n", ret);
+		return ret;
+	}
+	report = (struct joycon_input_report *)ctlr->input_buf;
+	for ( i = 0; i < 16; i++)
+		link_key[i] = report->subcmd_reply.data[16-i] ^ 0xaa;
+
+	req = (struct joycon_subcmd_request *)buffer;
+	req->subcmd_id = JC_SUBCMD_MANUAL_BT_PAIRING;
+	data = req->data;
+	data[0] = 0x03; /* commit pairing info to flash */
+
+	hid_dbg(ctlr->hdev, "commiting pairing info to flash\n");
+	ret = joycon_send_subcmd(ctlr, req, 1, HZ);
+	if (ret) {
+		hid_err(ctlr->hdev, "fail to commit pairing info; ret=%d\n", ret);
+		return ret;
+	}
+	report = (struct joycon_input_report *)ctlr->input_buf;
+	return 0;
 }
 
 /*
@@ -2099,6 +2166,90 @@ static int nintendo_hid_event(struct hid_device *hdev,
 	return joycon_ctlr_handle_event(ctlr, raw_data, size);
 }
 
+static ssize_t joycon_show_bt_pair(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct hid_device *hdev = to_hid_device(dev);
+	struct joycon_ctlr *ctlr;
+	int i, pos;
+
+	ctlr = hid_get_drvdata(hdev);
+	if (!ctlr) {
+		hid_err(hdev, "No controller data\n");
+		return -ENODEV;
+	}
+
+	if (!ctlr->bt_paired)
+		return -ENOENT;
+
+	for (pos = 0, i = 0; i < 16; i++)
+		pos += snprintf(&buf[pos],
+				PAGE_SIZE - pos, "%02x", ctlr->bt_link_key[i]);
+	return pos;
+}
+
+static ssize_t joycon_store_bt_pair(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int ret;
+	u8 host_mac[6];
+	struct hid_device *hdev = to_hid_device(dev);
+	struct joycon_ctlr *ctlr;
+
+	ctlr = hid_get_drvdata(hdev);
+	if (!ctlr) {
+		hid_err(hdev, "No controller data\n");
+		return -ENODEV;
+	}
+
+	if (count < 17 || !mac_pton(buf, host_mac)) {
+		hid_err(hdev, "cannot parse mac address\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctlr->output_mutex);
+	ret = joycon_manual_pairing(ctlr, host_mac, ctlr->bt_link_key);
+	mutex_unlock(&ctlr->output_mutex);
+	if (ret) {
+		hid_err(hdev, "manual pairing failed, ret=%d\n", ret);
+		ctlr->bt_paired = false;
+		return -EIO;
+	}
+
+	ctlr->bt_paired = true;
+	return count;
+}
+
+
+static ssize_t joycon_show_bt_mac(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct hid_device *hdev = to_hid_device(dev);
+	struct joycon_ctlr *ctlr;
+
+	ctlr = hid_get_drvdata(hdev);
+	if (!ctlr) {
+		hid_err(hdev, "No controller data\n");
+		return -ENODEV;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%s", ctlr->mac_addr_str);
+}
+
+static DEVICE_ATTR(bt_pair, 0660, joycon_show_bt_pair, joycon_store_bt_pair);
+static DEVICE_ATTR(bt_mac, 0440, joycon_show_bt_mac, NULL);
+
+static struct attribute *joycon_attrs[] = {
+	&dev_attr_bt_pair.attr,
+	&dev_attr_bt_mac.attr,
+	NULL
+};
+
+static const struct attribute_group joycon_attr_group = {
+	.attrs = joycon_attrs,
+};
+
 static int nintendo_hid_probe(struct hid_device *hdev,
 			    const struct hid_device_id *id)
 {
@@ -2253,6 +2404,13 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 		goto err_close;
 	}
 
+	/* Init sysfs interface */
+	ret = sysfs_create_group(&hdev->dev.kobj, &joycon_attr_group);
+	if (ret != 0) {
+		hid_err(hdev, "Failed to create sysfs interface; ret=%d\n", ret);
+		goto err_close;
+	}
+
 	ctlr->ctlr_state = JOYCON_CTLR_STATE_READ;
 
 	hid_dbg(hdev, "probe - success\n");
@@ -2284,6 +2442,8 @@ static void nintendo_hid_remove(struct hid_device *hdev)
 	spin_unlock_irqrestore(&ctlr->lock, flags);
 
 	destroy_workqueue(ctlr->rumble_queue);
+
+	sysfs_remove_group(&hdev->dev.kobj, &joycon_attr_group);
 
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
