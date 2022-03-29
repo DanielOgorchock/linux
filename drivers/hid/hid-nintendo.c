@@ -303,8 +303,8 @@ enum joycon_ctlr_type {
 	JOYCON_CTLR_TYPE_JCR = 0x02,
 	JOYCON_CTLR_TYPE_PRO = 0x03,
 	JOYCON_CTLR_TYPE_NESL = 0x09,
- 	JOYCON_CTLR_TYPE_NESR = 0x0A,
- 	JOYCON_CTLR_TYPE_SNES = 0x0B,
+	JOYCON_CTLR_TYPE_NESR = 0x0A,
+	JOYCON_CTLR_TYPE_SNES = 0x0B,
 	JOYCON_CTLR_TYPE_GEN = 0x0D,
 };
 
@@ -485,21 +485,21 @@ struct joycon_ctlr {
 /* Helper macros for checking controller type */
 #define jc_type_is_joycon(ctlr) \
 	((ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONL || \
- 	  ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONR || \
- 	  ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_CHRGGRIP) && \
- 	 !jc_type_is_nescon(ctlr))
+	  ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONR || \
+	  ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_CHRGGRIP) && \
+	 !jc_type_is_nescon(ctlr))
 #define jc_type_is_procon(ctlr) \
 	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_PROCON)
 #define jc_type_is_chrggrip(ctlr) \
 	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_CHRGGRIP)
 #define jc_type_is_nescon(ctlr) \
- 	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONR && \
- 	 (ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESL || \
- 	  ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESR))
+	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONR && \
+	 (ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESL || \
+	  ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESR))
 #define jc_type_is_snescon(ctlr) \
- 	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_SNESCON)
+	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_SNESCON)
 #define jc_type_is_gencon(ctlr) \
- 	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_GENCON)
+	(ctlr->hdev->product == USB_DEVICE_ID_NINTENDO_GENCON)
 
 /* Does this controller have inputs associated with left joycon? */
 #define jc_type_has_left(ctlr) \
@@ -509,17 +509,17 @@ struct joycon_ctlr {
 /* Does this controller have inputs associated with right joycon? */
 #define jc_type_has_right(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCR || \
- 	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 /* Can this controller be connected via USB */
- #define jc_has_usb(ctlr) \
- 	(jc_type_is_procon(ctlr) || \
- 	 jc_type_is_chrggrip(ctlr) || \
- 	 jc_type_is_snescon(ctlr) || \
+#define jc_has_usb(ctlr) \
+	(jc_type_is_procon(ctlr) || \
+	 jc_type_is_chrggrip(ctlr) || \
+	 jc_type_is_snescon(ctlr) || \
 	 jc_type_is_gencon(ctlr))
 
 #define jc_has_imu(ctlr) \
- 	(jc_type_is_joycon(ctlr) || jc_type_is_procon(ctlr))
+	(jc_type_is_joycon(ctlr) || jc_type_is_procon(ctlr))
 
 static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
 {
@@ -1380,41 +1380,41 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
 	if (jc_type_is_nescon(ctlr) || \
 	    jc_type_is_snescon(ctlr) || \
 	    jc_type_is_gencon(ctlr)) {
- 		s8 x;
- 		s8 y;
+		s8 x;
+		s8 y;
 
- 		if (btns & JC_BTN_LEFT)
- 			x = -1;
- 		else if (btns & JC_BTN_RIGHT)
- 			x = 1;
+		if (btns & JC_BTN_LEFT)
+			x = -1;
+		else if (btns & JC_BTN_RIGHT)
+			x = 1;
 
- 		if (btns & JC_BTN_UP)
- 			y = -1;
- 		else if (btns & JC_BTN_DOWN)
- 			y = 1;
+		if (btns & JC_BTN_UP)
+			y = -1;
+		else if (btns & JC_BTN_DOWN)
+			y = 1;
 
- 		input_report_abs(dev, ABS_HAT0X, x);
- 		input_report_abs(dev, ABS_HAT0Y, y);
+		input_report_abs(dev, ABS_HAT0X, x);
+		input_report_abs(dev, ABS_HAT0Y, y);
 
- 		/* report buttons */
+		/* report buttons */
 		input_report_key(dev, BTN_EAST, btns & JC_BTN_A);
- 		input_report_key(dev, BTN_SOUTH, btns & JC_BTN_B);
- 		input_report_key(dev, BTN_SELECT, btns & JC_BTN_MINUS);
- 		input_report_key(dev, BTN_START, btns & JC_BTN_PLUS);
+		input_report_key(dev, BTN_SOUTH, btns & JC_BTN_B);
+		input_report_key(dev, BTN_SELECT, btns & JC_BTN_MINUS);
+		input_report_key(dev, BTN_START, btns & JC_BTN_PLUS);
 
 		if (jc_type_is_snescon(ctlr)) {
 			input_report_key(dev, BTN_TL, btns & JC_BTN_L);
- 			input_report_key(dev, BTN_TR, btns & JC_BTN_R);
- 			input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
- 			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
- 			input_report_key(dev, BTN_NORTH, btns & JC_BTN_X);
- 			input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
- 		}
-		if (jc_type_is_gencon(ctlr)) {
- 			input_report_key(dev, BTN_MODE, btns & JC_BTN_ZR);
- 			input_report_key(dev, BTN_C, btns & JC_BTN_R);
+			input_report_key(dev, BTN_TR, btns & JC_BTN_R);
+			input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
+			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
+			input_report_key(dev, BTN_NORTH, btns & JC_BTN_X);
+			input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
 		}
- 	}
+		if (jc_type_is_gencon(ctlr)) {
+			input_report_key(dev, BTN_C, btns & JC_BTN_R);
+			input_report_key(dev, BTN_MODE, btns & JC_BTN_ZR);
+		}
+	}
 
 	input_sync(dev);
 
@@ -1658,16 +1658,16 @@ static const unsigned int nescon_button_inputs[] = {
 };
 
 static const unsigned int snescon_button_inputs[] = {
-	BTN_SELECT,	/* "Select" */     
-	BTN_START, 	/* "Start" */    
-	BTN_SOUTH, 	/* "B" */    
-	BTN_EAST,  	/* "A" */   
-	BTN_NORTH, 	/* "X" */    
-	BTN_WEST,  	/* "Y" */   
-	BTN_TL,    	/* "L" */ 
-	BTN_TL2,   	/* "ZL" */  
-	BTN_TR,    	/* "R" */ 
-	BTN_TR2,   	/* "ZR" */  
+	BTN_SELECT,	/* "Select" */
+	BTN_START, 	/* "Start" */
+	BTN_SOUTH, 	/* "B" */
+	BTN_EAST,  	/* "A" */
+	BTN_NORTH, 	/* "X" */
+	BTN_WEST,  	/* "Y" */
+	BTN_TL,    	/* "L" */
+	BTN_TL2,   	/* "ZL" */
+	BTN_TR,    	/* "R" */
+	BTN_TR2,   	/* "ZR" */
 	0          	/* 0 signals end of array */
 };
 
@@ -1710,23 +1710,23 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 		break;
 	case USB_DEVICE_ID_NINTENDO_JOYCONR:
 		if (ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESL) {
- 			name = "Nintendo Controller for Nintendo Switch Online (L)";
- 			imu_name = NULL;
- 		} else if (ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESR) {
- 			name = "Nintendo Controller for Nintendo Switch Online (R)";
- 			imu_name = NULL;
- 		} else {
- 			name = "Nintendo Switch Right Joy-Con";
- 			imu_name = "Nintendo Switch Right Joy-Con IMU";
- 		}
+			name = "Nintendo Controller for Nintendo Switch Online (L)";
+			imu_name = NULL;
+		} else if (ctlr->ctlr_type == JOYCON_CTLR_TYPE_NESR) {
+			name = "Nintendo Controller for Nintendo Switch Online (R)";
+			imu_name = NULL;
+		} else {
+			name = "Nintendo Switch Right Joy-Con";
+			imu_name = "Nintendo Switch Right Joy-Con IMU";
+		}
 	case USB_DEVICE_ID_NINTENDO_SNESCON:
- 		name = "Super Nintendo Controller for Nintendo Switch Online";
- 		imu_name = NULL;
- 		break;
+		name = "Super Nintendo Controller for Nintendo Switch Online";
+		imu_name = NULL;
+		break;
 	case USB_DEVICE_ID_NINTENDO_GENCON:
- 		name = "SEGA Genesis Control Pad for Nintendo Switch Online";
- 		imu_name = NULL;
- 		break;
+		name = "SEGA Genesis Control Pad for Nintendo Switch Online";
+		imu_name = NULL;
+		break;
 	default: /* Should be impossible */
 		hid_err(hdev, "Invalid hid product\n");
 		return -EINVAL;
@@ -1783,53 +1783,53 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
 					     joycon_button_inputs_r[i]);
 	}
 	if (jc_type_is_nescon(ctlr)) {
- 		/* set up dpad hat */
- 		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
- 		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
+		/* set up dpad hat */
+		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
+		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
 
- 		/* set up buttons */
+		/* set up buttons */
 		for (i = 0; nescon_button_inputs[i] > 0; i++)
- 			input_set_capability(ctlr->input, EV_KEY, nescon_button_inputs[i]);
+			input_set_capability(ctlr->input, EV_KEY, nescon_button_inputs[i]);
 
- 		/* register the device here, we don't need any more setup */
- 		ret = input_register_device(ctlr->input);
- 		if (ret)
- 			return ret;
+		/* register the device here, we don't need any more setup */
+		ret = input_register_device(ctlr->input);
+		if (ret)
+			return ret;
 
- 		return 0;
- 	}
+		return 0;
+	}
 	if (jc_type_is_snescon(ctlr)) {
- 		/* set up dpad hat */
- 		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
- 		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
+		/* set up dpad hat */
+		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
+		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
 
- 		/* set up buttons */
+		/* set up buttons */
 		for (i = 0; snescon_button_inputs[i] > 0; i++)
- 			input_set_capability(ctlr->input, EV_KEY, snescon_button_inputs[i]);
+			input_set_capability(ctlr->input, EV_KEY, snescon_button_inputs[i]);
 
- 		/* register the device here, we don't need any more setup */
- 		ret = input_register_device(ctlr->input);
- 		if (ret)
- 			return ret;
+		/* register the device here, we don't need any more setup */
+		ret = input_register_device(ctlr->input);
+		if (ret)
+			return ret;
 
- 		return 0;
- 	}
+		return 0;
+	}
 	if (jc_type_is_gencon(ctlr)) {
- 		/* set up dpad hat */
- 		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
- 		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
+		/* set up dpad hat */
+		input_set_abs_params(ctlr->input, ABS_HAT0X, -1, 1, 0, 0);
+		input_set_abs_params(ctlr->input, ABS_HAT0Y, -1, 1, 0, 0);
 
- 		/* set up buttons */
+		/* set up buttons */
 		for (i = 0; gencon_button_inputs[i] > 0; i++)
- 			input_set_capability(ctlr->input, EV_KEY, gencon_button_inputs[i]);
+			input_set_capability(ctlr->input, EV_KEY, gencon_button_inputs[i]);
 
- 		/* register the device here, we don't need any more setup */
- 		ret = input_register_device(ctlr->input);
- 		if (ret)
- 			return ret;
+		/* register the device here, we don't need any more setup */
+		ret = input_register_device(ctlr->input);
+		if (ret)
+			return ret;
 
- 		return 0;
- 	}
+		return 0;
+	}
 
 	/* Let's report joy-con S triggers separately */
 	if (hdev->product == USB_DEVICE_ID_NINTENDO_JOYCONL) {
@@ -2461,13 +2461,13 @@ static const struct hid_device_id nintendo_hid_devices[] = {
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
 			       USB_DEVICE_ID_NINTENDO_JOYCONR) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_NINTENDO,
- 			 USB_DEVICE_ID_NINTENDO_SNESCON)       },
- 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
- 			       USB_DEVICE_ID_NINTENDO_SNESCON) },
+			 USB_DEVICE_ID_NINTENDO_SNESCON)       },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
+			       USB_DEVICE_ID_NINTENDO_SNESCON) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_NINTENDO,
- 			 USB_DEVICE_ID_NINTENDO_GENCON)        },
- 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
- 			       USB_DEVICE_ID_NINTENDO_GENCON)  },
+			 USB_DEVICE_ID_NINTENDO_GENCON)        },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
+			       USB_DEVICE_ID_NINTENDO_GENCON)  },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, nintendo_hid_devices);
