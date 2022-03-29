@@ -1399,12 +1399,12 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
  		/* report buttons */
 		input_report_key(dev, BTN_EAST, btns & JC_BTN_A);
  		input_report_key(dev, BTN_SOUTH, btns & JC_BTN_B);
- 		input_report_key(dev, BTN_TL, btns & JC_BTN_L);
- 		input_report_key(dev, BTN_TR, btns & JC_BTN_R);
  		input_report_key(dev, BTN_SELECT, btns & JC_BTN_MINUS);
  		input_report_key(dev, BTN_START, btns & JC_BTN_PLUS);
 
 		if (jc_type_is_snescon(ctlr)) {
+			input_report_key(dev, BTN_TL, btns & JC_BTN_L);
+ 			input_report_key(dev, BTN_TR, btns & JC_BTN_R);
  			input_report_key(dev, BTN_TL2, btns & JC_BTN_ZL);
  			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
  			input_report_key(dev, BTN_NORTH, btns & JC_BTN_X);
