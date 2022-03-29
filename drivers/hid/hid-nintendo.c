@@ -504,7 +504,7 @@ struct joycon_ctlr {
 /* Does this controller have inputs associated with left joycon? */
 #define jc_type_has_left(ctlr) \
 	(ctlr->ctlr_type == JOYCON_CTLR_TYPE_JCL || \
- 	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
+	 ctlr->ctlr_type == JOYCON_CTLR_TYPE_PRO)
 
 /* Does this controller have inputs associated with right joycon? */
 #define jc_type_has_right(ctlr) \
@@ -1411,8 +1411,8 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
  			input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
  		}
 		if (jc_type_is_gencon(ctlr)) {
- 			input_report_key(dev, BTN_TR2, btns & JC_BTN_ZR);
- 			input_report_key(dev, BTN_WEST, btns & JC_BTN_Y);
+ 			input_report_key(dev, BTN_MODE, btns & JC_BTN_ZR);
+ 			input_report_key(dev, BTN_C, btns & JC_BTN_R);
 		}
  	}
 
@@ -1675,8 +1675,8 @@ static const unsigned int gencon_button_inputs[] = {
 	BTN_START,	/* "Start" */
 	BTN_EAST, 	/* "A" */
 	BTN_SOUTH,	/* "B" */
-	BTN_TR,   	/* "C" */
-	BTN_TR2,  	/* "Mode" */
+	BTN_C,    	/* "C" */
+	BTN_MODE, 	/* "Mode" */
 	0         	/* 0 signals end of array */
 };
 
@@ -1724,7 +1724,7 @@ static int joycon_input_create(struct joycon_ctlr *ctlr)
  		imu_name = NULL;
  		break;
 	case USB_DEVICE_ID_NINTENDO_GENCON:
- 		name = "SEGA Genesis Control Pad for Nintendo Switch";
+ 		name = "SEGA Genesis Control Pad for Nintendo Switch Online";
  		imu_name = NULL;
  		break;
 	default: /* Should be impossible */
@@ -2310,6 +2310,7 @@ static int nintendo_hid_probe(struct hid_device *hdev,
 	}
 
 	hid_device_io_start(hdev);
+
 	/* Initialize the controller */
 	mutex_lock(&ctlr->output_mutex);
 	/* if handshake command fails, assume ble pro controller */
@@ -2483,3 +2484,4 @@ module_hid_driver(nintendo_hid_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Daniel J. Ogorchock <djogorchock@gmail.com>");
 MODULE_DESCRIPTION("Driver for Nintendo Switch Controllers");
+
