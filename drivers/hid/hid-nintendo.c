@@ -305,7 +305,7 @@ enum joycon_ctlr_type {
 	JOYCON_CTLR_TYPE_NESL = 0x09,
  	JOYCON_CTLR_TYPE_NESR = 0x0A,
  	JOYCON_CTLR_TYPE_SNES = 0x0B,
-	/* TODO: JOYCON_CTLR_TYPE_GEN = ? */
+	JOYCON_CTLR_TYPE_GEN = 0x0D,
 };
 
 struct joycon_stick_cal {
