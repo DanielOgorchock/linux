@@ -401,7 +401,7 @@ struct joycon_input_report {
 
 #define JC_MAX_RESP_SIZE	(sizeof(struct joycon_input_report) + 35)
 #define JC_RUMBLE_DATA_SIZE	8
-#define JC_RUMBLE_QUEUE_SIZE	8
+#define JC_RUMBLE_QUEUE_SIZE	4
 
 static const char * const joycon_player_led_names[] = {
 	LED_FUNCTION_PLAYER1,
@@ -548,10 +548,10 @@ static void joycon_wait_for_input_report(struct joycon_ctlr *ctlr)
 #define JC_INPUT_REPORT_MIN_DELTA	8
 #define JC_INPUT_REPORT_MAX_DELTA	17
 #define JC_SUBCMD_TX_OFFSET_MS		4
-#define JC_SUBCMD_VALID_DELTA_REQ	3
+#define JC_SUBCMD_VALID_DELTA_REQ	0
 #define JC_SUBCMD_RATE_MAX_ATTEMPTS	500
 #define JC_SUBCMD_RATE_LIMITER_USB_MS	20
-#define JC_SUBCMD_RATE_LIMITER_BT_MS	60
+#define JC_SUBCMD_RATE_LIMITER_BT_MS	50
 #define JC_SUBCMD_RATE_LIMITER_MS(ctlr)	((ctlr)->hdev->bus == BUS_USB ? JC_SUBCMD_RATE_LIMITER_USB_MS : JC_SUBCMD_RATE_LIMITER_BT_MS)
 static void joycon_enforce_subcmd_rate(struct joycon_ctlr *ctlr)
 {
