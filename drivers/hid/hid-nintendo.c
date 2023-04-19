@@ -468,8 +468,7 @@ struct joycon_ctlr {
 	u16 rumble_lh_freq;
 	u16 rumble_rl_freq;
 	u16 rumble_rh_freq;
-	unsigned short rumble_zero_countdown;
-
+	
 	/* imu */
 	struct input_dev *imu_input;
 	bool imu_first_packet_received; /* helps in initiating timestamp */
@@ -1266,16 +1265,7 @@ static void joycon_parse_report(struct joycon_ctlr *ctlr,
 	if (IS_ENABLED(CONFIG_NINTENDO_FF) && rep->vibrator_report &&
 	    ctlr->ctlr_state != JOYCON_CTLR_STATE_REMOVED &&
 	    (msecs - ctlr->rumble_msecs) >= JC_RUMBLE_PERIOD_MS &&
-	    (ctlr->rumble_queue_head != ctlr->rumble_queue_tail ||
-	     ctlr->rumble_zero_countdown > 0)) {
-		/*
-		 * When this value reaches 0, we know we've sent multiple
-		 * packets to the controller instructing it to disable rumble.
-		 * We can safely stop sending periodic rumble packets until the
-		 * next ff effect.
-		 */
-		if (ctlr->rumble_zero_countdown > 0)
-			ctlr->rumble_zero_countdown--;
+	    ctlr->rumble_queue_head != ctlr->rumble_queue_tail) {
 		queue_work(ctlr->rumble_queue, &ctlr->rumble_worker);
 	}
 
@@ -1597,9 +1587,6 @@ static int joycon_set_rumble(struct joycon_ctlr *ctlr, u16 amp_r, u16 amp_l,
 	freq_r_high = ctlr->rumble_rh_freq;
 	freq_l_low = ctlr->rumble_ll_freq;
 	freq_l_high = ctlr->rumble_lh_freq;
-	/* limit number of silent rumble packets to reduce traffic */
-	if (amp_l != 0 || amp_r != 0)
-		ctlr->rumble_zero_countdown = JC_RUMBLE_ZERO_AMP_PKT_CNT;
 	spin_unlock_irqrestore(&ctlr->lock, flags);
 
 	/* right joy-con */
